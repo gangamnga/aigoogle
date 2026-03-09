@@ -1,35 +1,38 @@
 import streamlit as st
 
-# Mở rộng toàn bộ trang web
-st.set_page_config(page_title="AI Movie Studio", layout="wide")
+# Cài đặt trang web rộng ra hết màn hình
+st.set_page_config(page_title="Studio Phim AI", layout="wide")
 
-# 1. Tạo Menu bên hông (Sidebar)
+# --- KHU VỰC 1: MENU BÊN HÔNG (SIDEBAR) ---
 with st.sidebar:
-    st.header("⚙️ Cài đặt Studio")
-    st.write("Bảng điều khiển các thông số của phim.")
-    phong_cach = st.selectbox("Chọn phong cách:", ["Điện ảnh (Cinematic)", "Hoạt hình 3D", "Tranh vẽ tay"])
-    
-# 2. Tiêu đề chính
-st.title("🎬 Studio Phim AI Siêu Cấp")
+    st.header("⚙️ Bảng Điều Khiển")
+    st.write("Chỉnh sửa thông số cho phim của bạn.")
+    phong_cach = st.selectbox("Phong cách nghệ thuật:", ["Điện ảnh 3D", "Hoạt hình Anime", "Vẽ chì", "Cyberpunk"])
+    ti_le = st.radio("Tỉ lệ khung hình:", ["16:9 (Ngang)", "9:16 (Dọc)", "1:1 (Vuông)"])
+    st.info("💡 Mẹo: Chọn phong cách trước khi viết kịch bản.")
 
-# 3. Chia màn hình thành 2 cột (Cột trái to bằng cột phải)
+# --- KHU VỰC 2: MÀN HÌNH CHÍNH ---
+st.title("🎬 Studio Phim AI Tự Động")
+st.markdown("---") # Đường kẻ ngang phân cách
+
+# Chia làm 2 cột: Cột trái (Nhập liệu) - Cột phải (Hiển thị)
 cot_trai, cot_phai = st.columns(2)
 
 with cot_trai:
-    st.subheader("📝 1. Kịch bản Hình Ảnh")
-    # Thay text_input bằng text_area để khung nhập liệu to hơn
-    kich_ban = st.text_area("Nhập chi tiết cảnh quay của bạn:", height=150, placeholder="Ví dụ: Một phi hành gia đang đi bộ trên sao Hỏa lúc hoàng hôn...")
-    nut_bam = st.button("Bấm máy 🎥")
+    st.subheader("📝 1. Viết Kịch Bản")
+    # Khung nhập chữ to và rộng hơn
+    kich_ban = st.text_area("Mô tả cảnh quay của bạn:", height=200, placeholder="Ví dụ: Một phi hành gia đang đi bộ trên sao Hỏa...")
+    nut_bam = st.button("🚀 Bấm Máy Tạo Ảnh!")
 
 with cot_phai:
-    st.subheader("🖼️ 2. Màn hình xem trước")
+    st.subheader("📺 2. Màn Hình Chiếu")
     if nut_bam:
         if kich_ban:
-            st.info(f"Đang vẽ ảnh theo phong cách: {phong_cach}...")
-            # Dùng "diễn viên đóng thế" - một đường link ảnh có sẵn trên mạng
+            st.success("Đang xử lý kịch bản...")
+            # Tạm thời dùng 1 bức ảnh mẫu để "đóng thế" trong lúc chờ nối API thật
             anh_mau = "https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?q=80&w=1000"
-            st.image(anh_mau, caption=f"Kịch bản: {kich_ban}")
+            st.image(anh_mau, caption=f"Đã áp dụng phong cách: {phong_cach}")
         else:
-            st.warning("Đạo diễn chưa đưa kịch bản kìa!")
+            st.warning("Đạo diễn ơi, chưa có kịch bản!")
     else:
-        st.write("Chờ lệnh từ đạo diễn...")
+        st.info("Chờ lệnh từ đạo diễn...")
