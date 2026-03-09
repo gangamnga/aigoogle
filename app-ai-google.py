@@ -10,7 +10,7 @@ API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 
 # Chọn bộ não AI (Gemini 1.5 Flash là phiên bản nhanh và thông minh)
-model = genai.GenerativeModel('gemini-3.1-flash-preview')
+model = genai.GenerativeModel('gemini-3.0-flash')
 
 # Ô để bạn nhập câu hỏi
 cau_hoi = st.text_input("Bạn muốn hỏi gì nào?")
