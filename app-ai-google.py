@@ -1,42 +1,27 @@
-import streamlit as st
 import pandas as pd
-import time
+import sys
+import io
 
-st.set_page_config(page_title="Studio Phim AI", layout="wide")
-st.title("🎬 Studio Phim AI Tự Động")
+# Đảm bảo in tiếng Việt không bị lỗi trên Windows
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-danh_sach_link_goc = st.text_area("Dán danh sách link Google Sheets vào đây:", height=100)
-nut_bam = st.button("🚀 Bắt đầu sản xuất!")
+# 1. Thay thế 'YOUR_SHEET_ID' bằng ID file Google Sheet công khai của bạn.
+# (Bạn có thể lấy ID này trên thanh địa chỉ trình duyệt, nó nằm giữa phần '/d/' và '/edit')
+sheet_id = '1h6bQjFVbyW-clHNGuaPmbNesZikkZC0OlPC_MZzxPeY' # Đây là một file Google Sheet mẫu để chạy thử
 
-if nut_bam and danh_sach_link_goc:
-    danh_sach_link = danh_sach_link_goc.split('\n')
+# 2. Thay đổi đường dẫn để tải trang dưới dạng file CSV
+url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
+
+print("Đang đọc dữ liệu từ Google Sheet...")
+
+try:
+    # 3. Dùng hàm read_csv của pandas để đọc dữ liệu thẳng từ đường dẫn web (URL)
+    df = pd.read_csv(url)
     
-    for stt, link in enumerate(danh_sach_link):
-        if link.strip() == "": continue
-            
-        st.markdown(f"### 🎞️ Đang làm Phim số {stt + 1}")
-        link_doc_du_lieu = link.replace("/edit?usp=sharing", "/export?format=csv")
-        
-        try:
-            # 1. Đọc bảng dữ liệu
-            bang_kich_ban = pd.read_csv(link_doc_du_lieu)
-            st.dataframe(bang_kich_ban)
-            
-            # 2. Bắt đầu Trạm 2: Xử lý hình ảnh
-            st.write("🎨 Đang chuẩn bị kịch bản hình ảnh...")
-            
-            # Trích xuất lệnh vẽ ở phân cảnh đầu tiên (dòng số 0)
-            lenh_ve_anh_canh_1 = bang_kich_ban["Prompt Hình ảnh (Keyframe)"].iloc[0]
-            
-            st.info(f"Đang vẽ cảnh 1 với lệnh: {lenh_ve_anh_canh_1}")
-            
-            with st.spinner('AI đang vẽ...'):
-                time.sleep(2) # Chờ 2 giây mô phỏng thời gian AI vẽ
-                
-                # Vì chúng ta chưa cài thẻ ngân hàng, ta vẫn dùng ảnh đóng thế, 
-                # nhưng chú thích bên dưới ảnh sẽ là câu lệnh thật từ Google Sheets của bạn!
-                anh_mau = "https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?q=80&w=1000"
-                st.image(anh_mau, caption=f"Kịch bản AI nhận được: {lenh_ve_anh_canh_1}")
-                
-        except Exception as e:
-            st.error(f"❌ Lỗi: {e}")
+    # 4. In ra 5 dòng đầu tiên để xem kết quả
+    print("\n--- Dữ liệu đọc được thành công ---")
+    print(df.head())
+    
+except Exception as e:
+    print(f"\nCó lỗi xảy ra: {e}")
+    print("Mẹo: Hãy chắc chắn rằng file Google Sheet của bạn đã được chia sẻ công khai (Anyone with the link).")
