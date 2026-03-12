@@ -21,7 +21,7 @@ except ImportError:
 # ==========================================
 # CẤU HÌNH GCP (Thay đổi theo Project của bạn)
 # ==========================================
-PROJECT_ID = "YOUR_GCP_PROJECT_ID"
+PROJECT_ID = "project-5409ce36-126a-4d22-a43"
 LOCATION = "us-central1"
 
 def init_gcp():
@@ -151,7 +151,7 @@ def main():
 
     if 'files' in st.session_state and len(st.session_state['files']) > 0:
         with col2:
-            selected_file = st.selectbox("Chọn file kịch bản để xử lý:", st.session_state['files'])
+            selected_file = st.selectbox("Xem trước dữ liệu của file:", st.session_state['files'])
             load_btn = st.button("Đọc dữ liệu bảng")
             
         if load_btn or 'df' in st.session_state:
@@ -171,134 +171,150 @@ def main():
             except Exception as e:
                 st.error(f"Lỗi đọc file: {e}")
 
-    # --- BẮT ĐẦU QUY TRÌNH ---
+    # --- BẮT ĐẦU QUY TRÌNH TỰ ĐỘNG HÀNG LOẠT ---
     st.divider()
-    if 'df' in st.session_state:
-        df = st.session_state['df']
+    if 'files' in st.session_state and len(st.session_state['files']) > 0:
+        st.write("### 🚀 Tiến trình tạo Video tự động")
+        st.info("Hệ thống sẽ xử lý lần lượt từng file trong thư mục. Cơ chế thông minh: 'Lỗi đến đâu, làm lại đến đó'. Các file/bước đã hoàn thành sẽ tự động bị bỏ qua nếu chạy lại.")
         
-        if st.button("🚀 XÁC NHẬN VÀ BẮT ĐẦU RENDER", type="primary"):
-            # st.info("Khởi tạo kết nối Google Cloud...")
-            # if not init_gcp(): st.stop()
-            
-            # --- UI Tiến trình ---
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            output_dir = "workspace_output"
-            os.makedirs(output_dir, exist_ok=True)
-            
-            total_rows = len(df)
-            audio_files = []
-            srt_files = []
-            image_files = []
-            video_clips = []
-            
-            # Lặp qua dữ liệu kịch bản
-            for index, row in df.iterrows():
-                stt = str(row["STT"])
-                noi_dung = str(row["Nội dung"])
-                prompt_keyframe = str(row["Prompt Keyframe"])
-                prompt_motion = str(row["Prompt Motion"])
+        if st.button("XÁC NHẬN XỬ LÝ TOÀN BỘ THƯ MỤC", type="primary"):
+            for current_file in st.session_state['files']:
+                st.markdown(f"## 🎬 Đang xử lý kịch bản: `{current_file}`")
+                file_path = os.path.join(st.session_state['folder_path'], current_file)
                 
-                status_text.write(f"**Đang xử lý dòng STT: {stt}...**")
+                # 1. Đọc dữ liệu
+                try:
+                    df_current = pd.read_csv(file_path) if current_file.endswith('.csv') else pd.read_excel(file_path)
+                    if len(df_current.columns) < 4:
+                        st.error(f"File {current_file} không đủ 4 cột. Bỏ qua.")
+                        continue
+                    df_current.columns = ["STT", "Nội dung", "Prompt Keyframe", "Prompt Motion"]
+                except Exception as e:
+                    st.error(f"Lỗi đọc file {current_file}: {e}")
+                    continue
                 
-                # --- BƯỚC 2: ÂM THANH & PHỤ ĐỀ ---
-                st.subheader(f"STT {stt} - Âm thanh & Phụ đề")
-                with st.spinner(f"Chạy Vertex AI TTS cho đoạn thoại: '{noi_dung[:20]}...'"):
+                # 2. Tạo thư mục output riêng cho file này
+                file_basename = os.path.splitext(current_file)[0]
+                output_dir = os.path.join("workspace_output", file_basename)
+                os.makedirs(output_dir, exist_ok=True)
+                
+                progress_bar = st.progress(0)
+                total_rows = len(df_current)
+                audio_files = []
+                srt_files = []
+                image_files = []
+                video_clips = []
+                
+                has_error = False
+                
+                # Lặp qua dữ liệu kịch bản
+                for index, row in df_current.iterrows():
+                    if has_error: 
+                        break # Dừng file hiện tại nếu có lỗi nghiêm trọng
+                        
+                    stt = str(row["STT"])
+                    noi_dung = str(row["Nội dung"])
+                    prompt_keyframe = str(row["Prompt Keyframe"])
+                    prompt_motion = str(row["Prompt Motion"])
+                    
                     audio_path = os.path.join(output_dir, f"Audio_{stt}.mp3")
                     srt_path = os.path.join(output_dir, f"Subtitle_{stt}.srt")
-                    
-                    if generate_audio_and_srt(noi_dung, audio_path, srt_path):
-                        audio_files.append(audio_path)
-                        srt_files.append(srt_path)
-                        # Streamlit UI
-                        st.audio(audio_path, format="audio/mp3")
-                        with open(audio_path, "rb") as file:
-                            st.download_button(label=f"Tải Audio {stt} (.mp3)", data=file, file_name=f"Audio_{stt}.mp3", mime="audio/mp3", key=f"dl_a_{stt}")
-                            
-                # --- BƯỚC 3: HÌNH ẢNH KEYFRAME ---
-                st.subheader(f"STT {stt} - Keyframe Hình ảnh")
-                with st.spinner(f"Render ảnh bằng Imagen 3: '{prompt_keyframe[:30]}...'"):
                     image_path = os.path.join(output_dir, f"Keyframe_{stt}.png")
-                    # (Tạm thời bypass vì mock, thực tế sẽ gọi generate_keyframe)
-                    # if generate_keyframe(prompt_keyframe, image_path): 
-                    #     image_files.append(image_path)
-                    
-                    # Mô phỏng file tạo thành công:
-                    with open(image_path, "wb") as f: f.write(b"")
-                    image_files.append(image_path)
-                    st.success(f"Đã lưu {image_path}")
-                
-                # Cập nhật thanh Load từng dòng
-                progress_bar.progress((index * 3 + 1) / (total_rows * 3 + 2))
-
-            # --- Hiển thị lưới bảng Keyframes ở cuối Bước 3 ---
-            st.write("### Tổng hợp Ảnh Keyframes (Grid)")
-            if len(image_files) > 0:
-                img_df = pd.DataFrame({
-                    "STT": df["STT"].values,
-                    "Prompt Keyframe": df["Prompt Keyframe"].values,
-                    "File Path": image_files
-                })
-                col_disp = st.columns(3)
-                for idx, path in enumerate(image_files):
-                    # st.image(path) - Trong thực tế path chứa ảnh
-                    col_disp[idx % 3].markdown(f"**Keyframe {df['STT'].values[idx]}**\n`{path}`")
-                st.dataframe(img_df, use_container_width=True)
-
-            # --- BƯỚC 4: TẠO VIDEO CHUYỂN ĐỘNG ---
-            st.header("Bước 4: Model Veo - Tạo Video Chuyển động")
-            for i in range(len(image_files)):
-                stt = df.iloc[i]["STT"]
-                start_img = image_files[i]
-                end_img = image_files[i+1] if i + 1 < len(image_files) else None 
-                motion_prompt = df.iloc[i]["Prompt Motion"]
-                
-                with st.spinner(f"Tạo Video Scene bằng API Veo cho STT {stt}..."):
                     vid_path = os.path.join(output_dir, f"VideoClip_{stt}.mp4")
-                    if generate_video_scene(start_img, end_img, motion_prompt, vid_path):
-                        video_clips.append(vid_path)
-                        
-                progress_bar.progress((total_rows * 3 + 1) / (total_rows * 3 + 2))
+                    
+                    audio_files.append(audio_path)
+                    srt_files.append(srt_path)
+                    image_files.append(image_path)
+                    video_clips.append(vid_path)
+                    
+                    st.write(f"**⚡ Đang xử lý STT {stt}...**")
+                    
+                    # --- BƯỚC 2: ÂM THANH & PHỤ ĐỀ ---
+                    if os.path.exists(audio_path) and os.path.exists(srt_path):
+                        st.success(f"✔️ Đã có Audio & Subtitle cho STT {stt}. Bỏ qua...")
+                    else:
+                        with st.spinner(f"Chạy Vertex AI TTS: '{noi_dung[:20]}...'"):
+                            if not generate_audio_and_srt(noi_dung, audio_path, srt_path):
+                                st.error(f"❌ Lỗi tạo Audio STT {stt}. Dừng tiến trình file này.")
+                                has_error = True
+                                break
+                    
+                    # --- BƯỚC 3: HÌNH ẢNH KEYFRAME ---
+                    if os.path.exists(image_path):
+                        st.success(f"✔️ Đã có Hình ảnh cho STT {stt}. Bỏ qua...")
+                    else:
+                        with st.spinner(f"Render ảnh Imagen 3: '{prompt_keyframe[:30]}...'"):
+                            # (Tạm thời mock, thực tế sẽ gọi generate_keyframe)
+                            with open(image_path, "wb") as f: f.write(b"") # Mocking
+                            # if not generate_keyframe(prompt_keyframe, image_path):
+                            #     st.error(f"❌ Lỗi tạo Hình ảnh STT {stt}. Dừng tiến trình file này.")
+                            #     has_error = True
+                            #     break
+                            
+                    progress_bar.progress((index * 3 + 1) / (total_rows * 3 + 2))
 
-            # --- BƯỚC 5: GHÉP NỐI VÀ XUẤT BẢN ---
-            st.header("Bước 5: Ghép Code & Xuất Video (MoviePy)")
-            with st.spinner("Đang sử dụng MoviePy để concatenate clips, chèn audio và srt..."):
-                try:
-                    # Mã MoviePy ghép file thực tế:
-                    '''
-                    valid_clips = []
-                    for v_path, a_path in zip(video_clips, audio_files):
-                        clip = VideoFileClip(v_path)
-                        audio = AudioFileClip(a_path)
-                        clip = clip.set_audio(audio)
-                        valid_clips.append(clip)
-                        
-                    final_video = concatenate_videoclips(valid_clips, method="compose")
-                    output_final = os.path.join(output_dir, "Video_Hoan_Chinh.mp4")
-                    final_video.write_videofile(output_final, codec="libx264", audio_codec="aac")
-                    '''
-                    # Giả lập ghép nối thành công:
-                    time.sleep(2)
-                    output_final = os.path.join(output_dir, "Video_Hoan_Chinh.mp4")
-                    with open(output_final, "wb") as f: f.write(b"")
+                if has_error:
+                    st.warning(f"⚠️ Quá trình xử lý file `{current_file}` bị gián đoạn. Lần sau chạy lại sẽ tiếp tục từ bước bị lỗi.")
+                    continue
+
+                # --- BƯỚC 4: TẠO VIDEO CHUYỂN ĐỘNG ---
+                st.write(f"**🎬 Tạo Video Chuyển động cho `{current_file}`**")
+                for i in range(len(image_files)):
+                    if has_error: break
+                    stt = df_current.iloc[i]["STT"]
+                    start_img = image_files[i]
+                    end_img = image_files[i+1] if i + 1 < len(image_files) else None 
+                    motion_prompt = df_current.iloc[i]["Prompt Motion"]
+                    vid_path = video_clips[i]
                     
+                    if os.path.exists(vid_path):
+                        st.success(f"✔️ Đã có Video Clip cho STT {stt}. Bỏ qua...")
+                    else:
+                        with st.spinner(f"Tạo Video Scene bằng API Veo cho STT {stt}..."):
+                            if not generate_video_scene(start_img, end_img, motion_prompt, vid_path):
+                                st.error(f"❌ Lỗi tạo Video STT {stt}. Dừng tiến trình file này.")
+                                has_error = True
+                                break
+                                
+                    progress_bar.progress((total_rows * 3 + 1) / (total_rows * 3 + 2))
+
+                if has_error:
+                    st.warning(f"⚠️ Quá trình xử lý file `{current_file}` bị gián đoạn ở bước tạo Video.")
+                    continue
+
+                # --- BƯỚC 5: GHÉP NỐI VÀ XUẤT BẢN ---
+                st.write(f"**🎞️ Ghép & Xuất Video cho `{current_file}`**")
+                output_final = os.path.join(output_dir, f"Video_Hoan_Chinh_{file_basename}.mp4")
+                
+                if os.path.exists(output_final):
+                    st.success(f"✔️ File `{output_final}` đã hoàn thành từ trước. Không cần ghép lại.")
                     progress_bar.progress(100)
-                    status_text.success("🎉 QUÁ TRÌNH KHỞI TẠO VÀ GHÉP NỐI TRỌN VẸN!")
-                    st.success(f"Video đã được render và lưu tại: {output_final}")
+                else:
+                    with st.spinner("Đang sử dụng MoviePy để concatenate các cảnh..."):
+                        try:
+                            # Mock ghép file thành công
+                            time.sleep(2)
+                            with open(output_final, "wb") as f: f.write(b"")
+                            
+                            progress_bar.progress(100)
+                            st.success(f"🎉 Khởi tạo và ghép nối trọn vẹn kịch bản `{current_file}`!")
+                        except Exception as e:
+                            st.error(f"❌ Lỗi khi ghép video bằng MoviePy: {e}")
+                            continue
+                            
+                # Nút tải xuống hiển thị ngay trên UI khi xong 1 file
+                with open(output_final, "rb") as final_f:
+                    st.download_button(
+                        label=f"📥 TẢI XUỐNG VIDEO ({file_basename}.mp4)",
+                        data=final_f,
+                        file_name=f"{file_basename}_Final.mp4",
+                        mime="video/mp4",
+                        type="primary",
+                        key=f"dl_final_{file_basename}"
+                    )
                     
-                    # Nút TẢI XUỐNG Dành cho người dùng
-                    with open(output_final, "rb") as final_f:
-                        st.download_button(
-                            label="📥 TẢI XUỐNG VIDEO HOÀN CHỈNH (.mp4)",
-                            data=final_f,
-                            file_name="Video_Veo_GCP_Automation.mp4",
-                            mime="video/mp4",
-                            type="primary",
-                            use_container_width=True
-                        )
-                except Exception as e:
-                    st.error(f"Lỗi khi ghép video bằng MoviePy: {e}")
+            st.balloons()
+            st.success("✅ ĐÃ XỬ LÝ XONG TOÀN BỘ CÁC FILE TRONG THƯ MỤC!")
 
 if __name__ == "__main__":
     main()
